@@ -1,7 +1,7 @@
 # ClonENet
 ClonENet is a method that supports single-sample and multi-sample to infer subclonal population, using single nucleotide polymorphism and copy number variation information. <br>
 The script uses human genes as an example to show how to obtain the input file of ClonENet, that is, from the gene sequencing file to the generation of the ClonENet input file.
-## The preprocess includes the following steps:
+## Preprocess steps
 * Using BWA to align the sequencing data. and the SAM file will be generated. Converting SAM files to BAM files with samtools.
 ```Bash
     $ bwa mem -t 24 -M -Y -R "@RG\tID:$pfx\tPL:illumina\tLB:WGS\tSM:$pfx" $reference $fastq1 $fastq2 | samtools view -Sb > $pfx.bam

@@ -53,4 +53,7 @@ We give some alternative software to detect CNV and SNP:
     * Battenberg;
     * Sclust CN;
     * IFTV-CNV;
+* Tumor purity (Optional)
+    * ABSOLUTE
+    * Estimation
 ## Run ClonENet

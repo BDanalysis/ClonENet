@@ -6,27 +6,27 @@ The script uses human genes as an example to show how to obtain the input file o
 ```Bash
     $ bwa mem -t 24 -M -Y -R "@RG\tID:$pfx\tPL:illumina\tLB:WGS\tSM:$pfx" $reference $fastq1 $fastq2 | samtools view -Sb > $pfx.bam
 
-    $ samtools sort -@ 24 -o $pfx.sorted.bam $pfx.bam
+    $ samtools sort -@ 24 -o ${pfx}.sorted.bam ${pfx}.bam
 ```
 * Using gatk to process BAM files.
 ```Bash
-    $ gatk MarkDuplicates -I $pfx.sorted.bam -O $pfx.sorted.markdup.bam \
+    $ gatk MarkDuplicates -I ${pfx}.sorted.bam -O ${pfx}.sorted.markdup.bam \
     -M $pfx.sorted.markdup.txt -REMOVE_DUPLICATES true
 
-    $ gatk BuildBamIndex -I $pfx.sorted.markdup.bam -O $pfx.sorted.markdup.bai
+    $ gatk BuildBamIndex -I ${pfx}.sorted.markdup.bam -O ${pfx}.sorted.markdup.bai
 
-    $ gatk BaseRecalibrator -R $reference -I $pfx.sorted.markdup.bam \
+    $ gatk BaseRecalibrator -R $reference -I ${pfx}.sorted.markdup.bam \
     --known-sites $indel1 --known-sites $dbsnp \
-    --known-sites $indel2 -O $pfx.table
+    --known-sites $indel2 -O ${pfx}.table
 
-    $ gatk ApplyBQSR --bqsr-recal-file $pfx.table \
-    -R $reference -I $pfx.sorted.markdup.bam \
-    -O $pfx.sorted.markdup.bqsr.bam
+    $ gatk ApplyBQSR --bqsr-recal-file ${pfx}.table \
+    -R ${reference} -I ${pfx}.sorted.markdup.bam \
+    -O ${pfx}.sorted.markdup.bqsr.bam
 ```
 * Using gatk mutect2 to detect SNP in filtered BAM files 
 ```Bash
     $ gatk Mutect2 -R ${ref} \
-    -I $pfx.sorted.markdup.bqsr.bam -I $normal.sorted.markdup.bqsr.bam \
+    -I ${pfx}.sorted.markdup.bqsr.bam -I ${normal}.sorted.markdup.bqsr.bam \
     -tumor ${pfx} -normal ${normal} -L ${interval_list} -O ${pfx}.mutect2.vcf
 
     $ gatk FilterMutectCalls -V ${pfx}.mutect2.vcf \

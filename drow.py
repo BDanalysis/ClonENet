@@ -1,10 +1,38 @@
 import matplotlib.pyplot as plt
+import seaborn as sns
 import matplotlib.gridspec as gsc
 import numpy as np
-import GMM_clust as GMM
 from scipy.stats import norm
 import getopt
 import sys
+from matplotlib import rcParams
+
+config = {
+    "font.family": 'serif', # 衬线字体
+    "font.size": 15, # 相当于小四大小
+    "font.serif": ['SimSun'], # 宋体
+    "mathtext.fontset": 'stix', # matplotlib渲染数学字体时使用的字体，和Times New Roman差别不大
+    'axes.unicode_minus': False # 处理负号，即-号
+}
+rcParams.update(config)
+
+def get_colors(n):
+    colors = sns.color_palette(n_colors=n)
+    return colors
+
+def fq(list):
+    max = np.max(list)
+    min = np.min(list)
+    list = list - min
+    space = np.arange(min,max,0.01)
+    fq = []
+    for i in range(np.size(space)):
+        tmp_list= list-((i+1)*0.01)
+        index = np.argwhere(tmp_list>0).reshape(-1)
+        fq.append(np.size(list)-np.size(index))
+        if np.size(index) > 0:
+            list = list[index]
+    return fq
 
 def main():
     OutputPath = ""
@@ -114,49 +142,47 @@ def drow_clust(path,result,vaf,phi,clust=-1):
     gs = gsc.GridSpec(2, 5)
     lab = np.unique(result)
     plt.figure(1, figsize=(20,10))
-    plt.subplots_adjust(wspace=0.3,hspace=0.0)
+    plt.subplots_adjust(wspace=0.4,hspace=0.1)
     as_raw = plt.subplot(gs[0,0:2])
     num_bins = int((np.max(vaf)-np.min(vaf))/0.01)
-    as_raw.hist(vaf, num_bins, alpha=0.6,color="blue")
+    sns.histplot(data=vaf, bins=num_bins, color="blue", ax=as_raw)
     as_raw.set_xlim([-0.01,1.01])
     as_raw.yaxis.set_ticks_position('left')
-    as_raw.set_title("CCF of raw data")
-    #as_raw.set_xlabel("CCF")
+    as_raw.set_title("CCF of raw data",fontsize=20)
+    as_raw.set_ylabel("Count", fontsize=20)
+
     as_phi = plt.subplot(gs[1, 0:2])
-    as_phi.hist(phi, num_bins, alpha=0.6,color="black")
+    sns.histplot(data=phi, bins=num_bins, color="black", ax=as_phi)
     as_phi.set_xlim([-0.01, 1.01])
     as_phi.yaxis.set_ticks_position('left')
-    #as_phi.set_title("Corrected CCF")
-    as_phi.set_xlabel("Corrected CCF")
-    colors = GMM.colors(np.max(lab)+1)
+    as_phi.set_xlabel("Corrected CCF",fontsize=20)
+    as_phi.set_ylabel("Count",fontsize=20)
+    colors = get_colors(np.max(lab)+1)
     as_clust = plt.subplot(gs[0:3, 2:5])
     as_clust.yaxis.set_ticks_position('right')
     for i in np.unique(result):
         c_list = phi[result == i]
         if np.max(c_list)-np.min(c_list)==0:
             c_list = np.r_[c_list,np.min(c_list)-0.01]
-        x = np.array(c_list)
-        num_bins = int((np.max(c_list)-np.min(c_list))/0.01) +1 # 直方图柱子的数量
-        n, bins, patches = as_clust.hist(c_list, num_bins,color=colors[i],alpha=0.6)
-        position = np.linspace(bins[0],bins[-1],np.size(n))
-        #mu = float(np.mean(position[n==np.max(n)]))
-        mu = np.mean(x)
+        n = np.array(fq(c_list))
+        num_bins = len(n) # 直方图柱子的数量
+        sns.histplot(data=c_list,bins=num_bins,color=colors[i],ax=as_clust)
+        mu = np.mean(c_list)
         if clust !=-1:
             mu = float(clust[i])
-        sigma = np.std(x) #round(np.max([np.std(x),0.01]),2)
+        sigma = np.std(c_list)
         x = np.linspace(-0.01,1.01, 102)
         y = norm(mu, sigma).pdf(x)
         print(mu, end='\t')
         print(sigma)
         y = y*(np.max(n)/np.max(y))
-        as_clust.plot(x, y, color=colors[i],linestyle='-')  # 绘制y的曲线
+        sns.lineplot(x, y, color=colors[i],linestyle='-',ax=as_clust)
         as_clust.axvline(x=mu,ls=":",c=colors[i])#colors[i]
     as_clust.set_xlim([-0.01,1.01])  # 绘制x轴
-    as_clust.set_ylabel('Probability')  # 绘制y轴
-    as_clust.set_xlabel("CCF")
-    as_clust.set_title("Clustering results")
-    plt.savefig(path)
-    plt.show()
+    as_clust.set_ylabel('Probability',fontsize=20)  # 绘制y轴
+    as_clust.set_xlabel("CCF",fontsize=20)
+    as_clust.set_title("Clustering results",fontsize=20)
+    plt.savefig(path, format='pdf')
     plt.close()
 
 InputPath,OutputPath,Prefix,Purity = main()
@@ -169,7 +195,7 @@ minor = table1[:,3].reshape([-1]).astype(int)
 table2 = read_plug(InputPath+'/'+Prefix+'.vaf.txt')
 vaf = table2.reshape([-1])
 print("========================Elastic_net clust===========================")
-drow_clust(OutputPath+'/clust_'+Prefix+".png",result,vaf,phi)
+drow_clust(OutputPath+'/clust_'+Prefix+".pdf",result,vaf,phi)
 drow_copynum(clones,OutputPath+'/CN_'+Prefix+".pdf")
 
 """

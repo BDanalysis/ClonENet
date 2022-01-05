@@ -1,5 +1,7 @@
 import numpy as np
-import GMM_clust as GMM
+from waveCluster import *
+#import GMM_clust as GMM
+from sklearn.mixture import BayesianGaussianMixture as GMM
 import scipy
 from scipy.special import logit
 from scipy.special import expit
@@ -46,7 +48,7 @@ def ElasticNet_correct(r, n, multiplicity, total, ploidy, Lambda, alpha, rho, Ru
     vaf = r/n  # 次等位基因数/总数 thate
     phi = vaf * ((ploidy - purity * ploidy + purity * total) / multiplicity) #  CCF 文章中用 phi 表示， CP = CCF*purity
     tmp = np.where(phi>=1,phi,1)
-    phi_new = phi/tmp                                                 # CCF 最大为1
+    phi_new = phi/tmp                                               # CCF 最大为1
     phi_new[phi_new > expit(control_large)] = expit(control_large)  # 极大控制--由置信区间控制？
     phi_new[phi_new < expit(-control_large)] = expit(-control_large)  # 负极大控制
     omiga_new = logit(phi_new)
@@ -82,15 +84,14 @@ def ElasticNet_correct(r, n, multiplicity, total, ploidy, Lambda, alpha, rho, Ru
     while residual > precision and k < Run_limit :
         k = k+1
         omiga_old = omiga_new
-        eta_new = eta
+        #eta_new = eta
         theta = np.exp(omiga_old) * multiplicity / (2 + np.exp(omiga_old) * total)
         A = np.sqrt(n) *(theta-vaf)/np.sqrt(theta * (1 - theta))
-        B = np.sqrt(n) *theta/np.sqrt(theta * (1 - theta))
+        B = np.sqrt(n) * theta/np.sqrt(theta * (1 - theta))
         omiga_tmp_2 = (DELTA.tocsr() * np.array((alpha * eta_new + tau.T).T)).flatten() - (B * A)
         Minv = 1 / (B ** 2 + mutation_num * alpha)
         trace_g = -alpha * np.sum(Minv)
-        #a1 = np.diag(Minv)
-        #a2 = alpha * np.ones((mutation_num, mutation_num))
+
         Minv_outer = np.outer(Minv, Minv)
         omiga_tmp_1 = np.diag(Minv) + (1 / (1 + trace_g) * alpha * Minv_outer)# add?
         del A,B,trace_g
@@ -119,8 +120,8 @@ def clust_GMM(distance,phi_new,n,mutation_num,limit_diff,limit_clust):
     class_label[0] = 0
     group_size = [1]
     labl = 1
-    for i in range(1, mutation_num):
-        for j in range(i):
+    for i in range(0, mutation_num):
+        for j in range(i+1):
             if distance[j, i] == 0:
                 class_label[i] = class_label[j]
                 group_size[int(class_label[j])] += 1
@@ -148,8 +149,25 @@ def clust_GMM(distance,phi_new,n,mutation_num,limit_diff,limit_clust):
     for lab in range(len(phi_out)):
         phi_res[class_label == lab] = phi_out[lab]
     phi_res = np.round(phi_res,3)
-    model1 = GMM.GMM(phi_res,5)
-    result = model1.fit()
+    Xmoon = phi_res.reshape([-1,1])
+    #result = waveCluster(phi_res.reshape([-1,1]), scale=50, wavelet='db2', threshold=0.5, plot=True)
+
+    n_components = np.arange(1, 5)
+    """
+    models = [GMM(n, random_state=0).fit(Xmoon)
+              for n in n_components]
+    bic_list = []
+    for m in models:
+        bic_list.append(m.bic(Xmoon))
+    num_clust = np.argwhere(bic_list==np.min(bic_list))
+    num_clust = np.max(num_clust)+1
+    print(num_clust)
+    """
+    gmm = GMM(n_components=5,random_state=0).fit(phi_res.reshape([-1,1]))
+    result = gmm.predict(phi_res.reshape([-1,1]))
+    #model1 = GMM.GMM(phi_res,5)
+    #result = model1.fit()
+    result = np.array(result)
     lab = np.unique(result)
     balance = []
     for i in lab:
@@ -162,6 +180,8 @@ def clust_GMM(distance,phi_new,n,mutation_num,limit_diff,limit_clust):
         balance.append(mu)
     index_sort = np.argsort(balance)
     print("======================================================")
+    if len(index_sort)==1:
+        return {'phi': phi_res, 'balance': balance, 'label': result}
     for i in range(0, len(index_sort)):
         previous = i - 1
         the = i
@@ -194,7 +214,7 @@ def clust_GMM(distance,phi_new,n,mutation_num,limit_diff,limit_clust):
             print("merge:"+str(c1)+'\t'+str(c_1))
             clust1 = phi_res[result == c1]
             clust2 = phi_res[result == c_1]
-            mu = fq(np.r_[clust1, clust2]) #np.mean(np.r_[clust1, clust2])
+            mu = np.mean(np.r_[clust1, clust2]) #fq(np.r_[clust1, clust2]) #
             balance[index_sort[the]] = mu
             balance[index_sort[previous]] = mu
             result = np.where(result == c_1, c1, result)
@@ -203,12 +223,15 @@ def clust_GMM(distance,phi_new,n,mutation_num,limit_diff,limit_clust):
             print("merge:" + str(c1) + '\t' + str(c2))
             clust1 = phi_res[result == c1]
             clust2 = phi_res[result == c2]
-            mu = fq(np.r_[clust1, clust2])  # np.mean(np.r_[clust1, clust2])
+            mu = np.mean(np.r_[clust1, clust2]) #fq(np.r_[clust1, clust2])  #
             balance[index_sort[the]] = mu
             balance[index_sort[next]] = mu
             result = np.where(result == c2, c1, result)
             lab[index_sort[next]] = c1
-    return {'phi': phi_res, 'label': result}
+    #for i in np.unique(result):
+    #   mu = balance[i]
+    #   phi_res[result == i]=mu
+    return {'phi': phi_res,'balance':balance, 'label': result}
 
 def Elastic_GMM_subclone(SNV_pass,purity,Prefix):
     r = SNV_pass[:,2].astype(int)
@@ -225,8 +248,8 @@ def Elastic_GMM_subclone(SNV_pass,purity,Prefix):
     control_large = 5
     #--------------------------------jingdu canshu-------------------------------#
     post_th = 0.01
-    limit_diff = 0.1
-    limit_clust = 0.05
+    limit_diff = 0.02
+    limit_clust = 0.03
     # -------------------------------run   --------------------------------------#
     distance, phi_new, mutation_num = ElasticNet_correct(r, n, multiplicity, total, ploidy, Lambda, alpha,
                                         rho, Run_limit, precision, control_large,post_th,purity,Prefix)
@@ -238,7 +261,8 @@ def clust_stdout(SNVtable,res,path,name):
     summary = np.zeros([len(labl), 3])
     for i in range(len(labl)):
         summary[i, 0] = labl[i]
-        tmp = np.mean(res['phi'][np.where(res['label'] == labl[i])])
+        #tmp = np.mean(res['phi'][np.where(res['label'] == labl[i])])
+        tmp = np.mean(res['balance'][labl[i]])
         print(tmp)
         summary[i, 2] = np.round(tmp, 3)
         summary[i, 1] = len(np.where(res['label'] == labl[i])[0])

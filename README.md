@@ -15,7 +15,7 @@ The script uses human genes as an example to show how to obtain the input file o
 
     $ gatk BuildBamIndex -I ${pfx}.sorted.markdup.bam -O ${pfx}.sorted.markdup.bai
 
-    $ gatk BaseRecalibrator -R $reference -I ${pfx}.sorted.markdup.bam \
+    $ gatk BaseRecalibrator -R ${reference} -I ${pfx}.sorted.markdup.bam \
     --known-sites $indel1 --known-sites $dbsnp \
     --known-sites $indel2 -O ${pfx}.table
 

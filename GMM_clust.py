@@ -1,6 +1,12 @@
 import numpy as np
 import random
 
+def colors(n):
+    ret = []
+    for i in range(n):
+        ret.append((random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1)))
+    return ret
+
 class GMM(object):
     """Gaussian Mixture Model 
     """

@@ -59,8 +59,8 @@ def check_path(CNV_path,SNV_path,purity,OutPath,Prefix):
         print("Error:\tMissing SNP path")
         flag = 1
     if purity=='':
-        print("Error:\tMissing purity")
-        flag = 1
+        print("Warning:\tMissing purity")
+        purity = -1
     if OutPath=='':
         print("Warning:\tMissing output path, use default path './output'")
         OutPath = './output'
@@ -69,7 +69,7 @@ def check_path(CNV_path,SNV_path,purity,OutPath,Prefix):
         Prefix = 'sample0'
     if flag != 0:
         exit(flag)
-    return OutPath,Prefix
+    return OutPath,Prefix,purity
 
 def check_SNP(SNV_table):
     # check the chrom
@@ -165,6 +165,11 @@ def calculate_major_minor(CNV_table):
 def calculate_multiplicity(SNV_table,purity):
     AD = SNV_table[:, 2].astype(int)
     DP = SNV_table[:, 3].astype(int)
+    if purity == -1:
+        vaf = AD / DP
+        index=np.argwhere(vaf>0)
+        vaf = vaf[index]
+        purity = np.mean(np.abs(2*vaf-1))
     total = SNV_table[:, 4].astype(int)+SNV_table[:,5].astype(int)
     multiplicity = np.round(AD / DP / purity * (total * purity + (1 - purity) * 2)).astype(int)
     tmp = np.c_[SNV_table[:, 5].astype(int),multiplicity]
@@ -172,7 +177,7 @@ def calculate_multiplicity(SNV_table,purity):
     tmp = np.where(tmp<=1,1,tmp)
     SNV_table[:, 4] = SNV_table[:, 4].astype(int)+tmp#SNV_table[:,5].astype(int)
     SNV_table[:, 5] = tmp
-    return SNV_table
+    return SNV_table,purity
 
 def check_outlier(SNV_table):
     AD = SNV_table[:,2].astype(int)
@@ -185,7 +190,7 @@ def check_outlier(SNV_table):
     return pass_index#,out_index
 
 CNV_path,SNV_path,purity,OutPath,Prefix = main()
-OutPath,Prefix = check_path(CNV_path,SNV_path,purity,OutPath,Prefix)
+OutPath,Prefix,purity = check_path(CNV_path,SNV_path,purity,OutPath,Prefix)
 SNV_table = readfile_CNV_SNP(SNV_path)
 #SNV_table: chrom position AD DP
 SNV_table = check_SNP(SNV_table)
@@ -194,7 +199,7 @@ col,CNV_table = calculate_major_minor(CNV_table)
 
 merge_table = check_SNP_has_AB(SNV_table,CNV_table,col)
 #merge_table: chrom position AD DP major minor
-merge_table_m = calculate_multiplicity(merge_table,purity)
+merge_table_m,purity = calculate_multiplicity(merge_table,purity)
 #merge_table: chrom position AD DP total multiplicity
 pass_index= check_outlier(merge_table_m)
 merge_table_m = merge_table_m[pass_index,:]

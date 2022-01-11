@@ -1,7 +1,6 @@
 import numpy as np
-from waveCluster import *
 #import GMM_clust as GMM
-from sklearn.mixture import BayesianGaussianMixture as GMM
+from sklearn.mixture import GaussianMixture as GMM
 import scipy
 from scipy.special import logit
 from scipy.special import expit
@@ -115,7 +114,7 @@ def ElasticNet_correct(r, n, multiplicity, total, ploidy, Lambda, alpha, rho, Ru
     distance[index_dis] = eta_new
     return distance,phi_new,mutation_num
 
-def clust_GMM(distance,phi_new,n,mutation_num,limit_diff,limit_clust):
+def corrected(distance,phi_new,n,mutation_num):
     class_label = -np.ones(mutation_num)
     class_label[0] = 0
     group_size = [1]
@@ -144,35 +143,38 @@ def clust_GMM(distance,phi_new,n,mutation_num,limit_diff,limit_clust):
         class_label[ind] = indexs
         phi_out[indexs]=phi_tmp
     np.delete(phi_out, -1, axis=0)
-
     phi_res = np.zeros(mutation_num)
     for lab in range(len(phi_out)):
         phi_res[class_label == lab] = phi_out[lab]
     phi_res = np.round(phi_res,3)
-    Xmoon = phi_res.reshape([-1,1])
-    #result = waveCluster(phi_res.reshape([-1,1]), scale=50, wavelet='db2', threshold=0.5, plot=True)
+    return phi_res,class_label
 
-    n_components = np.arange(1, 5)
-    """
-    models = [GMM(n, random_state=0).fit(Xmoon)
-              for n in n_components]
-    bic_list = []
-    for m in models:
-        bic_list.append(m.bic(Xmoon))
-    num_clust = np.argwhere(bic_list==np.min(bic_list))
-    num_clust = np.max(num_clust)+1
-    print(num_clust)
-    """
-    gmm = GMM(n_components=5,random_state=0).fit(phi_res.reshape([-1,1]))
-    result = gmm.predict(phi_res.reshape([-1,1]))
-    #model1 = GMM.GMM(phi_res,5)
-    #result = model1.fit()
+def clust_GMM(phi_new,phi_res,mutation_num, has_sklearn=True):
+    limit_diff = 0.02
+    limit_clust = 0.03
+    Xmoon = phi_res.reshape([-1,1])
+    if has_sklearn == True:
+        n_components = np.arange(1, 5)
+        models = [GMM(n, random_state=0).fit(Xmoon)
+                  for n in n_components]
+        bic_list = []
+        for m in models:
+            bic_list.append(m.aic(Xmoon))
+        num_clust = np.argwhere(bic_list==np.min(bic_list))
+        num_clust = np.max(num_clust)+1
+        print(num_clust)
+        gmm = GMM(n_components=num_clust,random_state=0).fit(phi_res.reshape([-1,1]))
+        result = gmm.predict(phi_res.reshape([-1,1]))
+    else:
+        model1 = GMM.GMM(phi_res,5)
+        result = model1.fit()
+
     result = np.array(result)
     lab = np.unique(result)
     balance = []
     for i in lab:
-        c_list = phi_res[result == i]
-        mu = round(np.mean(c_list), 2)#fq(c_list) #
+        c_list = phi_new[result == i]
+        mu = fq(c_list)#round(np.mean(c_list), 2)
         sigma = np.std(c_list)
         print(mu,end="\t")
         print(sigma, end="\t")
@@ -208,29 +210,58 @@ def clust_GMM(distance,phi_new,n,mutation_num,limit_diff,limit_clust):
         c_1 = lab[index_sort[previous]]
         c1 = lab[index_sort[the]]
         c2 = lab[index_sort[next]]
-        sigma = np.std(phi_res[result == c1])
-        num = np.size(phi_res[result == c1])
+        sigma = np.std(phi_new[result == c1])
+        num = np.size(phi_new[result == c1])
         if meger == -1 and (diff_befor < limit_diff or num <= int(limit_clust * mutation_num) or sigma<0.002):
             print("merge:"+str(c1)+'\t'+str(c_1))
-            clust1 = phi_res[result == c1]
-            clust2 = phi_res[result == c_1]
-            mu = np.mean(np.r_[clust1, clust2]) #fq(np.r_[clust1, clust2]) #
+            clust1 = phi_new[result == c1]
+            clust2 = phi_new[result == c_1]
+            mu = np.mean(np.r_[clust1, clust2])
             balance[index_sort[the]] = mu
             balance[index_sort[previous]] = mu
             result = np.where(result == c_1, c1, result)
             lab[index_sort[previous]] = c1
         elif meger == 1 and (diff_after < limit_diff or num <= int(limit_clust * mutation_num) or sigma<0.002):
             print("merge:" + str(c1) + '\t' + str(c2))
-            clust1 = phi_res[result == c1]
-            clust2 = phi_res[result == c2]
-            mu = np.mean(np.r_[clust1, clust2]) #fq(np.r_[clust1, clust2])  #
+            clust1 = phi_new[result == c1]
+            clust2 = phi_new[result == c2]
+            mu = np.mean(np.r_[clust1, clust2])
             balance[index_sort[the]] = mu
             balance[index_sort[next]] = mu
             result = np.where(result == c2, c1, result)
             lab[index_sort[next]] = c1
-    #for i in np.unique(result):
-    #   mu = balance[i]
-    #   phi_res[result == i]=mu
+    return {'phi': phi_res,'balance':balance, 'label': result}
+
+def clust_GMM_multisample(phi_new,phi_res, has_sklearn=True):
+    Xmoon = phi_res.reshape([-1,2])
+    if has_sklearn == True:
+        n_components = np.arange(1, 6)
+        models = [GMM(n, random_state=0).fit(Xmoon)
+                  for n in n_components]
+        bic_list = []
+        for m in models:
+            bic_list.append(m.aic(Xmoon))
+        num_clust = np.argwhere(bic_list==np.min(bic_list))
+        num_clust = np.max(num_clust)+1
+        print(num_clust)
+        gmm = GMM(n_components=num_clust,random_state=0).fit(phi_res.reshape([-1,2]))
+        result = gmm.predict(phi_res.reshape([-1,2]))
+    else:
+        model1 = GMM.GMM(phi_res,5)
+        result = model1.fit()
+
+    result = np.array(result)
+    lab = np.unique(result)
+    balance = []
+    for i in lab:
+        c_list = phi_res[result == i,:]
+        mu = np.mean(c_list,axis=0)
+        sigma = np.std(c_list,axis=0)
+        print(mu,end="\t")
+        print(sigma, end="\t")
+        print(np.size(c_list))
+        balance.append(mu)
+    print("======================================================")
     return {'phi': phi_res,'balance':balance, 'label': result}
 
 def Elastic_GMM_subclone(SNV_pass,purity,Prefix):
@@ -248,31 +279,47 @@ def Elastic_GMM_subclone(SNV_pass,purity,Prefix):
     control_large = 5
     #--------------------------------jingdu canshu-------------------------------#
     post_th = 0.01
-    limit_diff = 0.02
-    limit_clust = 0.03
     # -------------------------------run   --------------------------------------#
     distance, phi_new, mutation_num = ElasticNet_correct(r, n, multiplicity, total, ploidy, Lambda, alpha,
                                         rho, Run_limit, precision, control_large,post_th,purity,Prefix)
-    res = clust_GMM(distance, phi_new, n, mutation_num, limit_diff, limit_clust)
-    return res
+    return distance, phi_new, mutation_num,n
 
 def clust_stdout(SNVtable,res,path,name):
     labl = np.unique(res['label'])
     summary = np.zeros([len(labl), 3])
     for i in range(len(labl)):
         summary[i, 0] = labl[i]
-        #tmp = np.mean(res['phi'][np.where(res['label'] == labl[i])])
-        tmp = np.mean(res['balance'][labl[i]])
+        tmp = np.mean(res['phi'][np.where(res['label'] == labl[i])])
+        #tmp = np.mean(res['balance'][labl[i]])
         print(tmp)
         summary[i, 2] = np.round(tmp, 3)
         summary[i, 1] = len(np.where(res['label'] == labl[i])[0])
     index = np.argsort(summary[:,2]).reshape(-1)
     summary = summary[index,:]
-    answer = SNVtable[:,0:2].astype(int)
-    answer2 = SNVtable[:, 4:6].astype(int)
-    answer = np.c_[answer,answer2,res['label'].astype(int),res['phi'].astype(float)]
+    answer = SNVtable[:,0:4].astype(int)
+    #answer2 = SNVtable[:, 4:6].astype(int)
+    answer = np.c_[answer,res['label'].astype(int),res['phi'].astype(float)]
     #with open(path+'/'+str(name)+'.Clust_pos.txt','w') as f:
     #    f.write('#chrom\tposition\tmajor\tminor\tclass\tvaf_phi \n')
     np.savetxt(path+'/'+str(name)+'.Clust_pos.txt', answer, fmt='%d\t%d\t%d\t%d\t%d\t%.3f', delimiter=',')
     np.savetxt('%s/%s.summary_table.txt' % (path, str(name)), summary, fmt='%d\t%d\t%.3f')
 
+def clust_stdout_muliti(SNVtable,res,path,name):
+    labl = np.unique(res['label'])
+    summary = np.zeros([len(labl), 4])
+    for i in range(len(labl)):
+        summary[i, 0] = labl[i]
+        #tmp = np.mean(res['phi'][np.where(res['label'] == labl[i]),:],axis=0)
+        tmp = res['balance'][labl[i]]
+        print(tmp)
+        summary[i, 2:4] = np.round(tmp, 3)
+        summary[i, 1] = len(np.where(res['label'] == labl[i])[0])
+    index = np.argsort(summary[:,2]).reshape(-1)
+    summary = summary[index,:]
+    answer = SNVtable[:,0:4].astype(int)
+    #answer2 = SNVtable[:, 4:6].astype(int)
+    answer = np.c_[answer,res['label'].astype(int),res['phi'][:,0],res['phi'][:,1]]
+    #with open(path+'/'+str(name)+'.Clust_pos.txt','w') as f:
+    #    f.write('#chrom\tposition\tmajor\tminor\tclass\tvaf_phi \n')
+    np.savetxt(path+'/'+str(name)+'.Clust_pos.txt', answer, fmt='%d\t%d\t%d\t%d\t%d\t%.3f\t%.3f', delimiter=',')
+    np.savetxt('%s/%s.summary_table.txt' % (path, str(name)), summary, fmt='%d\t%d\t%.3f\t%.3f')

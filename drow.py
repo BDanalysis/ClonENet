@@ -67,44 +67,64 @@ def drow_copynum(clones,path):
     arm = np.array(
         ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20',
          '21', '22', 'X','Y'])
+    subplots = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,23,24]
     clones_tmp = clones
-    plt.figure(figsize=(64, 8))
+    plt.figure(figsize=(24, 36))
+    iis = 0
     for chrom in arm:
+        print(chrom)
         idx = np.argwhere(clones_tmp[:, 0] == chrom).reshape(-1)
         if len(idx) <= 0 :
             continue
         clones = clones_tmp[idx,:].astype(int)
-        begins = clones[:, 1] / 10
-        ends = (clones[:, 2] - 1) / 10
+        begins = clones[:, 1] / 1000
+        ends = (clones[:, 2] - 1) / 1000
         base_end = np.max(ends)
         clusts = clones[:, 3]
-        A = clones[:, 4]
+        A = clones[:, 4]+clones[:, 5]
         B = clones[:, 5]
         point1_A = np.c_[begins, A, B, clusts].reshape((-1, 4))
         point2_A = np.c_[ends, A, B, clusts].reshape((-1, 4))
         points_A = np.c_[point1_A, point2_A].reshape((-1, 4))
         flag = False
-        colors_1 = ["darkgreen", "sienna"]
-        colors_2 = ["lawngreen", "yellow"]
+        colors_1 = ["darkgreen", "lawngreen"]
+        colors_2 = ["sienna", "yellow"]
         for i in range(np.shape(points_A)[0] - 1):
             if flag:
                 flag = False
                 continue
             line = points_A[i:i + 2, :]
-            # print(line)
             x = line[:, 0] + base_x
             y_1 = line[:, 1]
             y_2 = line[:, 2]
             if int(clone_main) == line[0, 3]:
                 c = 0
             else:
+                continue
+            plt.subplot(6,4,subplots[iis])
+            plt.plot(x, y_1, linestyle='-',  color=colors_1[c], alpha=1, linewidth=3)#marker='.',
+            plt.plot(x, y_2, linestyle='-',color=colors_2[c], alpha=1, linewidth=5) #marker='.',
+            flag = True
+
+        for i in range(np.shape(points_A)[0] - 1):
+            if flag:
+                flag = False
+                continue
+            line = points_A[i:i + 2, :]
+            x = line[:, 0] + base_x
+            y_1 = line[:, 1]
+            y_2 = line[:, 2]
+            if int(clone_main) == line[0, 3]:
+                continue
+            else:
                 c = 1
-            plt.plot(x, y_2, linestyle='-', marker='.', color=colors_2[c], alpha=1, linewidth=5)
-            plt.plot(x, y_1, linestyle='-', marker='.', color=colors_1[c], alpha=1, linewidth=5)
+            plt.subplot(6,4,subplots[iis])
+            plt.plot(x, y_1, linestyle='-',  color=colors_1[c], alpha=1, linewidth=3)#marker='.',
+            plt.plot(x, y_2, linestyle='-',color=colors_2[c], alpha=1, linewidth=5) #marker='.',
             flag = True
         plt.text(base_x, -0.2, "chr" + str(chrom), rotation=45, verticalalignment='center')
-        base_x = base_x + base_end
         plt.axvline(x=base_x, ls=":", c="black")
+        iis += 1
     plt.xticks([])
     plt.savefig(path, format='pdf')
     plt.close()
@@ -132,7 +152,7 @@ def drow_clust(path,result,vaf,phi,clust=-1):
     colors = GMM.colors(np.max(lab)+1)
     as_clust = plt.subplot(gs[0:3, 2:5])
     as_clust.yaxis.set_ticks_position('right')
-    n, bins, patches = as_clust.hist(vaf, num_bins,color="dimgrey")
+    #n, bins, patches = as_clust.hist(vaf, num_bins,color="dimgrey")
     for i in np.unique(result):
         c_list = vaf[result == i]
         if np.max(c_list)-np.min(c_list)==0:
@@ -141,8 +161,8 @@ def drow_clust(path,result,vaf,phi,clust=-1):
         num_bins = int((np.max(c_list)-np.min(c_list))/0.01) # 直方图柱子的数量
         n, bins, patches = as_clust.hist(c_list, num_bins,color='k')#,color=colors[i],alpha=0.6
         position = np.linspace(bins[0],bins[-1],np.size(n))
-        #mu = float(np.mean(position[n==np.max(n)]))
-        mu = np.mean(x)
+        mu = float(np.mean(position[n==np.max(n)]))
+        #mu = np.mean(x)
         if clust !=-1:
             mu = float(clust[i])
         sigma = np.std(x)*0.7#round(np.max([np.std(x),0.01]),2)
@@ -158,7 +178,7 @@ def drow_clust(path,result,vaf,phi,clust=-1):
     as_clust.set_xlabel("CCF")
     as_clust.set_title("Clustering results")
     plt.savefig(path)
-    plt.show()
+    #plt.show()
     plt.close()
 
 InputPath,OutputPath,Prefix,Purity = main()
@@ -174,31 +194,3 @@ vaf = table2.reshape([-1])
 print("========================Elastic_net clust===========================")
 drow_clust(OutputPath+'/clust_'+Prefix+".png",result,vaf,phi)
 drow_copynum(clones,OutputPath+'/CN_'+Prefix+".pdf")
-
-"""
-list=["EGAF00000057353","EGAF00000057354","EGAF00000057355","EGAF00000057356","EGAF00000057357","EGAF00000057358","EGAF00000057359",
-      "EGAF00000057360","EGAF00000057361","EGAF00000057362","EGAF00000057363"]
-plt.figure()
-fig = plt.figure(1, figsize=(8, 8))
-ax1 = fig.add_subplot(111)
-major = major+minor
-markers=["o","*","^",".","x"]
-for clust in np.unique(result):
-    index_x = np.argwhere(result==clust)
-    vaf_y = vaf[index_x]
-    major_y = major[index_x]
-    minor_y = minor[index_x]
-    ax1.plot(index_x,vaf_y,linestyle='None',marker=markers[clust],color=colors1[clust],alpha=0.3)
-    ax1.set_ylim([0,1])
-    #ax2 = ax1.twinx()
-    #y = major
-    #ax2.plot(major_y, linestyle='None', marker=markers[clust], color=colors1[clust], alpha=0.5)
-    #ax2.plot(minor_y, linestyle=':', marker='*', color="blue", alpha=0.5)
-    #ax2.set_ylim([0,5])
-plt.savefig(InputPath+'/points_'+Prefix+".png")
-plt.close()
-"""
-
-
-
-

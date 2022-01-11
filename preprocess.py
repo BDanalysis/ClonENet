@@ -1,7 +1,4 @@
 import numpy as np
-import ElasticNet_GMM_process as Ep
-import getopt
-import sys
 import gc
 
 def theta(w,minor,major,cn):
@@ -17,38 +14,6 @@ def readfile_CNV_SNP(path):
         CNV_table.append(tmp)
     table = np.array(CNV_table)
     return table
-
-def main():
-    CNV_path = ""
-    SNV_path = ""
-    purity = ""
-    OutPath = ""
-    opts, args = getopt.getopt(sys.argv[1:], "hp:c:s:o:x:", ["Help", "Purity=","CNV=", "SNP=","OutPath=","Prefix="])
-    for opts, arg in opts:
-        if opts == "-h" or opts == "--Help" or opts == "--help":
-            print("Required parameters:")
-            print("-c or --CNV:",end="\t")
-            print("Path to record CNV information file")
-            print("-p or --Purity:", end="\t")
-            print("Tumor purity")
-            print("-s or --SNP:", end="\t")
-            print("Path to record SNP information file")
-            print("-o or --OutPath:", end="\t")
-            print("Path to save the output file")
-            print("-x or --Prefix:", end="\t")
-            print("The prefix of the output file")
-            exit()
-        elif opts == "-c" or opts == "--CNV" or opts == "--cnv":
-            CNV_path = arg
-        elif opts == "-s" or opts == "--SNP" or opts == "--snp":
-            SNV_path = arg
-        elif opts == "-p" or opts == "--Purity" or opts == "--purity":
-            purity = float(arg)
-        elif opts == "-o" or opts == "--OutPath" or opts == "--outpath":
-            OutPath = arg
-        elif opts == "-x" or opts == "--Prefix" or opts == "--prefix":
-            Prefix = arg
-    return CNV_path,SNV_path,purity,OutPath,Prefix
 
 def check_path(CNV_path,SNV_path,purity,OutPath,Prefix):
     flag = 0
@@ -75,9 +40,7 @@ def check_SNP(SNV_table):
     # check the chrom
     # check the read depth
     # check the minor and total > 0
-    arm = np.array(
-        ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20',
-         '21', '22'])
+    arm = np.array(['1','2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21','22','X','Y'])
     answer = np.array([-1,-1,-1,-1]).reshape([1,4])
     for char in arm:
         tmp =SNV_table[:,0]
@@ -100,7 +63,7 @@ def check_SNP(SNV_table):
     return answer
 
 def check_SNP_has_AB(SNV_table,CNV_table,col):
-    arm = np.array(['1','2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21','22','X'])
+    arm = np.array(['1','2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21','22','X','Y'])
     answer = np.array(['chrom','pos','AD','DP','major','minor']).reshape([1,6])
     for chrom in arm:
         CNV = np.argwhere((CNV_table[:,0]==chrom)).reshape(-1)
@@ -175,7 +138,7 @@ def calculate_multiplicity(SNV_table,purity):
     tmp = np.c_[SNV_table[:, 5].astype(int),multiplicity]
     tmp = np.max(tmp,axis=1)
     tmp = np.where(tmp<=1,1,tmp)
-    SNV_table[:, 4] = SNV_table[:, 4].astype(int)+tmp#SNV_table[:,5].astype(int)
+    SNV_table[:, 4] = SNV_table[:, 4].astype(int)+tmp
     SNV_table[:, 5] = tmp
     return SNV_table,purity
 
@@ -186,23 +149,29 @@ def check_outlier(SNV_table):
     multiplicity = SNV_table[:,5].astype(int)
     sorce = 2/(multiplicity / AD * DP - total + 2)
     pass_index = np.argwhere((sorce>0) & (sorce<2)).reshape(-1)
-    #out_index = np.argwhere(sorce >1.5).reshape(-1)
-    return pass_index#,out_index
+    out_index =  np.argwhere((sorce<0) | (sorce>2)).reshape(-1)
+    return pass_index,out_index
 
-CNV_path,SNV_path,purity,OutPath,Prefix = main()
-OutPath,Prefix,purity = check_path(CNV_path,SNV_path,purity,OutPath,Prefix)
-SNV_table = readfile_CNV_SNP(SNV_path)
-#SNV_table: chrom position AD DP
-SNV_table = check_SNP(SNV_table)
-CNV_table = readfile_CNV_SNP(CNV_path)
-col,CNV_table = calculate_major_minor(CNV_table)
+def merge_two_sampe(merge_table_list):
+    arm = np.array(['1','2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21','22','X','Y'])
+    answer_0 = np.array(['chrom', 'pos', 'AD', 'DP', 'major', 'minor']).reshape([1, 6])
+    answer_1 = np.array(['chrom', 'pos', 'AD', 'DP', 'major', 'minor']).reshape([1, 6])
+    for chr in arm:
+        index_0 = np.argwhere((merge_table_list[0][:, 0] == chr)).reshape(-1)
+        index_1 = np.argwhere((merge_table_list[1][:, 0] == chr)).reshape(-1)
+        pos_0 = merge_table_list[0][index_0, 1]
+        pos_1 = merge_table_list[1][index_1, 1]
+        pos_merge = [val for val in pos_0 if val in pos_1]
+        if len(pos_merge) <= 0:
+            continue
+        for pos in pos_merge:
+            index = np.argwhere((merge_table_list[0][:, 0] == chr) & (merge_table_list[0][:, 1] == pos)).reshape(-1)
+            answer_0=np.append(answer_0,merge_table_list[0][index,:],axis=0)
+            index = np.argwhere((merge_table_list[1][:, 0] == chr) & (merge_table_list[1][:, 1] == pos)).reshape(-1)
+            answer_1=np.append(answer_1,merge_table_list[1][index,:],axis=0)
+    answer_0 = np.delete(answer_0, 0, axis=0)
+    answer_1 = np.delete(answer_1, 0, axis=0)
+    return answer_0,answer_1
 
-merge_table = check_SNP_has_AB(SNV_table,CNV_table,col)
-#merge_table: chrom position AD DP major minor
-merge_table_m,purity = calculate_multiplicity(merge_table,purity)
-#merge_table: chrom position AD DP total multiplicity
-pass_index= check_outlier(merge_table_m)
-merge_table_m = merge_table_m[pass_index,:]
-merge_out = merge_table[pass_index,:]
-res = Ep.Elastic_GMM_subclone(merge_table_m,purity,Prefix)
-Ep.clust_stdout(merge_out,res,OutPath,Prefix)
+
+

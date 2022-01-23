@@ -97,7 +97,7 @@ We give some alternative software to detect CNV and SNP:
         -x EGAF00000057355
 ```
 ## File format
-* [CNV file format](https://github.com/BDanalysis/ClonENet/blob/main/Sample/EGAF00000057355_cnv.txt)<br\>
+* [CNV file format](https://github.com/BDanalysis/ClonENet/blob/main/Sample/EGAF00000057355_cnv.txt)<br/>
 chrom   start   end major_CN    minor_CN
-* [SNV file format](https://github.com/BDanalysis/ClonENet/blob/main/Sample/EGAF00000057355_snp.txt)<br\>
+* [SNV file format](https://github.com/BDanalysis/ClonENet/blob/main/Sample/EGAF00000057355_snp.txt)<br/>
 chrom   position    allele_read_depth    total_read_depth

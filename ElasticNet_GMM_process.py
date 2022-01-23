@@ -75,7 +75,6 @@ def ElasticNet_correct(r, n, multiplicity, total, ploidy, Lambda, alpha, rho, Ru
                                  shape=(mutation_num, int(mutation_num * (mutation_num - 1) / 2)))
     del row_id, col_id,row1,row2,vals,phi
     gc.collect()
-    np.savetxt('%s/%s.vaf.txt' % ("output_real", str(Prefix)), phi_new, fmt='%.3f', delimiter=',')
     k = 0  # iterator
     residual = 100
     res_last = 100
@@ -244,7 +243,7 @@ def clust_GMM_multisample(phi_new,phi_res, has_sklearn=True):
         num_clust = np.argwhere(bic_list==np.min(bic_list))
         num_clust = np.max(num_clust)+1
         print(num_clust)
-        gmm = GMM(n_components=num_clust,random_state=0).fit(phi_res.reshape([-1,2]))
+        gmm = GMM(n_components=4,random_state=0).fit(phi_res.reshape([-1,2]))
         result = gmm.predict(phi_res.reshape([-1,2]))
     else:
         model1 = GMM.GMM(phi_res,5)
@@ -284,7 +283,7 @@ def Elastic_GMM_subclone(SNV_pass,purity,Prefix):
                                         rho, Run_limit, precision, control_large,post_th,purity,Prefix)
     return distance, phi_new, mutation_num,n
 
-def clust_stdout(SNVtable,res,path,name):
+def clust_stdout(SNVtable,phi_new,res,path,name):
     labl = np.unique(res['label'])
     summary = np.zeros([len(labl), 3])
     for i in range(len(labl)):
@@ -301,6 +300,7 @@ def clust_stdout(SNVtable,res,path,name):
     answer = np.c_[answer,res['label'].astype(int),res['phi'].astype(float)]
     #with open(path+'/'+str(name)+'.Clust_pos.txt','w') as f:
     #    f.write('#chrom\tposition\tmajor\tminor\tclass\tvaf_phi \n')
+    np.savetxt(path+'/'+str(name)+'.vaf.txt', phi_new, fmt='%.3f', delimiter=',')
     np.savetxt(path+'/'+str(name)+'.Clust_pos.txt', answer, fmt='%d\t%d\t%d\t%d\t%d\t%.3f', delimiter=',')
     np.savetxt('%s/%s.summary_table.txt' % (path, str(name)), summary, fmt='%d\t%d\t%.3f')
 

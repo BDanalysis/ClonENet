@@ -8,10 +8,10 @@ from scipy.stats import norm
 from matplotlib import rcParams
 
 config = {
-    "font.family": 'serif', # 衬线字体
-    "font.size": 15, # 相当于小四大小
-    "mathtext.fontset": 'stix', # matplotlib渲染数学字体时使用的字体，和Times New Roman差别不大
-    'axes.unicode_minus': False # 处理负号，即-号
+    "font.family": 'serif', # 
+    "font.size": 15, # 
+    "mathtext.fontset": 'stix', # 
+    'axes.unicode_minus': False # 
 }
 rcParams.update(config)
 np.set_printoptions(suppress=True)
